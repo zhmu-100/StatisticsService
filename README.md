@@ -1,1 +1,1 @@
-# statistic-inform-service
+# Statistics Service
