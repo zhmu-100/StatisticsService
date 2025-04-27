@@ -6,6 +6,20 @@
 
 Default configuration for this microservice:
 
+## Environment Setup
+
+Create an `.env` file in the project root with the following keys:
+
+```
+MODE=LOCAL
+PORT=8080
+
+CLICKHOUSE_SERVICE_URL=jdbc:clickhouse://localhost:8080/test_db
+DATABASE_USER=default
+DATABASE_PASSWORD=
+
+```
+
 ```plaintext
 ktor {
   deployment {
@@ -20,6 +34,12 @@ ktor {
 Default port for this service is 8082. (Application.kt)
 
 ## Start:
+
+Download ClickHouse
+
+```plaintext
+https://clickhouse.com/docs/getting-started/quick-start
+```
 
 Connect to ClickHouse
 
