@@ -1,70 +1,51 @@
 package com.mad.statistics.repositories
 
+import com.mad.statistics.clients.ClickHouseServiceClient
 import com.mad.statistics.models.CaloriesData
 import com.mad.statistics.models.common.UserMetadata
-import com.mad.statistics.utils.toJavaInstant
-import kotlinx.datetime.toKotlinInstant
-import java.sql.Timestamp
+import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.Instant
+import kotlinx.serialization.json.*
 import java.util.UUID
 
-class CaloriesRepository : RepositoryBase() {
+class CaloriesRepository(clickHouseServiceClient: ClickHouseServiceClient) : RepositoryBase(clickHouseServiceClient) {
     
     fun saveCaloriesData(caloriesData: CaloriesData) {
-        getConnection().use { connection ->
-            val sql = """
-                INSERT INTO calories_data (id, user_id, timestamp, calories)
-                VALUES (?, ?, ?, ?)
-            """.trimIndent()
-            
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, caloriesData.meta.id.ifEmpty { UUID.randomUUID().toString() })
-                statement.setString(2, caloriesData.meta.userId)
-                statement.setTimestamp(3, Timestamp.from(caloriesData.meta.timestamp.toJavaInstant()))
-                statement.setDouble(4, caloriesData.calories)
-                
-                statement.executeUpdate()
+        runBlocking {
+            val dataToInsert = buildJsonObject {
+                put("id", caloriesData.meta.id.ifEmpty { UUID.randomUUID().toString() })
+                put("user_id", caloriesData.meta.userId)
+                put("timestamp", caloriesData.meta.timestamp.toString())
+                put("calories", caloriesData.calories)
             }
+            
+            clickHouseServiceClient.insert("calories_data", listOf(dataToInsert))
         }
     }
     
     fun getCaloriesDataByUserId(userId: String): List<CaloriesData> {
-        val result = mutableListOf<CaloriesData>()
-        
-        getConnection().use { connection ->
-            val sql = """
-                SELECT id, user_id, timestamp, calories
-                FROM calories_data
-                WHERE user_id = ?
-                ORDER BY timestamp
-            """.trimIndent()
+        return runBlocking {
+            val columns = listOf("id", "user_id", "timestamp", "calories")
+            val filters = mapOf("user_id" to userId)
+            val orderBy = "timestamp ASC"
             
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, userId)
+            val result = clickHouseServiceClient.select("calories_data", columns, filters, orderBy)
+            
+            result.map { row ->
+                val id = row.jsonObject["id"]?.jsonPrimitive?.content ?: UUID.randomUUID().toString()
+                val userIdFromDb = row.jsonObject["user_id"]?.jsonPrimitive?.content ?: ""
+                val timestamp = Instant.parse(row.jsonObject["timestamp"]?.jsonPrimitive?.content ?: "")
+                val calories = row.jsonObject["calories"]?.jsonPrimitive?.double ?: 0.0
                 
-                statement.executeQuery().use { resultSet ->
-                    while (resultSet.next()) {
-                        val id = resultSet.getString("id")
-                        val userIdFromDb = resultSet.getString("user_id")
-                        val timestamp = resultSet.getTimestamp("timestamp").toInstant().toKotlinInstant()
-                        val calories = resultSet.getDouble("calories")
-                        
-                        val metadata = UserMetadata(
-                            id = id,
-                            userId = userIdFromDb,
-                            timestamp = timestamp
-                        )
-                        
-                        result.add(
-                            CaloriesData(
-                                meta = metadata,
-                                calories = calories
-                            )
-                        )
-                    }
-                }
+                CaloriesData(
+                    meta = UserMetadata(
+                        id = id,
+                        userId = userIdFromDb,
+                        timestamp = timestamp
+                    ),
+                    calories = calories
+                )
             }
         }
-        
-        return result
     }
 }

@@ -33,6 +33,14 @@ dependencies {
     implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
     implementation("io.ktor:ktor-server-cors:$ktorVersion")
     
+
+        // Добавьте эти зависимости
+    implementation("io.ktor:ktor-client-core:$ktorVersion")
+    implementation("io.ktor:ktor-client-cio:$ktorVersion")
+    implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
+    implementation("io.ktor:ktor-client-json:$ktorVersion")
+
+    
     // Koin
     implementation("io.insert-koin:koin-core:$koinVersion")
     implementation("io.insert-koin:koin-ktor:$koinVersion")
@@ -42,10 +50,9 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:$logbackVersion")
     
     // ClickHouse
-    // implementation("com.clickhouse:clickhouse-jdbc:$clickhouseVersion")
-    // implementation("com.clickhouse:clickhouse-http-client:$clickhouseVersion")
+    implementation("com.clickhouse:clickhouse-jdbc:$clickhouseVersion")
+    implementation("com.clickhouse:clickhouse-http-client:$clickhouseVersion")
     
-    implementation("org.postgresql:postgresql:42.6.0")
 
     // Kotlinx DateTime
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:$kotlinxDatetimeVersion")

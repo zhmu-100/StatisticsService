@@ -1,70 +1,75 @@
 package com.mad.statistics.repositories
 
+import com.mad.statistics.clients.ClickHouseServiceClient
 import com.mad.statistics.models.HeartRateData
 import com.mad.statistics.models.common.ExerciseMetadata
-import com.mad.statistics.utils.toJavaInstant
-import kotlinx.datetime.toKotlinInstant
-import java.sql.Timestamp
+import com.mad.statistics.utils.toClickHouseDateTime
+import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.Instant
+import kotlinx.serialization.json.*
 import java.util.UUID
 
-class HeartRateRepository : RepositoryBase() {
+class HeartRateRepository(clickHouseServiceClient: ClickHouseServiceClient) : RepositoryBase(clickHouseServiceClient) {
     
     fun saveHeartRateData(heartRateData: HeartRateData) {
-        getConnection().use { connection ->
-            val sql = """
-                INSERT INTO heart_rate_data (id, exercise_id, timestamp, bpm)
-                VALUES (?, ?, ?, ?)
-            """.trimIndent()
-            
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, heartRateData.meta.id.ifEmpty { UUID.randomUUID().toString() })
-                statement.setString(2, heartRateData.meta.exerciseId)
-                statement.setTimestamp(3, Timestamp.from(heartRateData.meta.timestamp.toJavaInstant()))
-                statement.setInt(4, heartRateData.bpm)
-                
-                statement.executeUpdate()
+        runBlocking {
+            val dataToInsert = buildJsonObject {
+                put("id", heartRateData.meta.id.ifEmpty { UUID.randomUUID().toString() })
+                put("exercise_id", heartRateData.meta.exerciseId)
+                put("timestamp", heartRateData.meta.timestamp.toClickHouseDateTime())
+                put("bpm", heartRateData.bpm)
             }
+            
+            clickHouseServiceClient.insert("heart_rate_data", listOf(dataToInsert))
         }
     }
-    
+
     fun getHeartRateDataByExerciseId(exerciseId: String): List<HeartRateData> {
-        val result = mutableListOf<HeartRateData>()
-        
-        getConnection().use { connection ->
-            val sql = """
-                SELECT id, exercise_id, timestamp, bpm
-                FROM heart_rate_data
-                WHERE exercise_id = ?
-                ORDER BY timestamp
-            """.trimIndent()
+        return try {
+            val columns = listOf("id", "exercise_id", "timestamp", "bpm")
+            val filters = mapOf("exercise_id" to exerciseId)
+            val orderBy = "timestamp ASC"
             
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, exerciseId)
-                
-                statement.executeQuery().use { resultSet ->
-                    while (resultSet.next()) {
-                        val id = resultSet.getString("id")
-                        val exerciseIdFromDb = resultSet.getString("exercise_id")
-                        val timestamp = resultSet.getTimestamp("timestamp").toInstant().toKotlinInstant()
-                        val bpm = resultSet.getInt("bpm")
-                        
-                        val metadata = ExerciseMetadata(
+            val result = runBlocking {
+                clickHouseServiceClient.select("heart_rate_data", columns, filters, orderBy)
+            }
+            
+            // Преобразуем результат в список HeartRateData
+            result.mapNotNull { element ->
+                try {
+                    if (element !is JsonObject) {
+                        logger.warn("Expected JsonObject but got ${element::class.simpleName}")
+                        return@mapNotNull null
+                    }
+                    
+                    val id = element["id"]?.jsonPrimitive?.contentOrNull ?: UUID.randomUUID().toString()
+                    val exerciseIdFromDb = element["exercise_id"]?.jsonPrimitive?.contentOrNull ?: ""
+                    val timestampStr = element["timestamp"]?.jsonPrimitive?.contentOrNull ?: ""
+                    val bpm = element["bpm"]?.jsonPrimitive?.intOrNull ?: 0
+                    
+                    val timestamp = try {
+                        Instant.parse(timestampStr)
+                    } catch (e: Exception) {
+                        logger.error("Error parsing timestamp: $timestampStr", e)
+                        Instant.fromEpochMilliseconds(0)
+                    }
+                    
+                    HeartRateData(
+                        meta = ExerciseMetadata(
                             id = id,
                             exerciseId = exerciseIdFromDb,
                             timestamp = timestamp
-                        )
-                        
-                        result.add(
-                            HeartRateData(
-                                meta = metadata,
-                                bpm = bpm
-                            )
-                        )
-                    }
+                        ),
+                        bpm = bpm
+                    )
+                } catch (e: Exception) {
+                    logger.error("Error mapping heart rate data: ${e.message}", e)
+                    null
                 }
             }
+        } catch (e: Exception) {
+            logger.error("Error retrieving heart rate data: ${e.message}", e)
+            emptyList()
         }
-        
-        return result
     }
 }

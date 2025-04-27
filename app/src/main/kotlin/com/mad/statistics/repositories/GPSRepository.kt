@@ -1,113 +1,102 @@
 package com.mad.statistics.repositories
 
+import com.mad.statistics.clients.ClickHouseServiceClient
 import com.mad.statistics.models.GPSData
 import com.mad.statistics.models.common.ExerciseMetadata
 import com.mad.statistics.models.common.GPSPosition
-import com.mad.statistics.utils.toJavaInstant
+import com.mad.statistics.utils.toClickHouseDateTime
+import com.mad.statistics.utils.parseClickHouseDateTime
+
+import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Instant
-import kotlinx.datetime.toKotlinInstant
-import java.sql.ResultSet
-import java.sql.Timestamp
+import kotlinx.serialization.json.*
 import java.util.UUID
 
-class GPSRepository : RepositoryBase() {
+class GPSRepository(clickHouseServiceClient: ClickHouseServiceClient) : RepositoryBase(clickHouseServiceClient) {
     
     fun saveGPSData(gpsData: GPSData) {
-        getConnection().use { connection ->
-            val sql = """
-                INSERT INTO gps_data (
-                    id, exercise_id, timestamp, position_timestamp, 
-                    latitude, longitude, altitude, speed, accuracy
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """.trimIndent()
-            
-            connection.prepareStatement(sql).use { statement ->
-                for (position in gpsData.positions) {
-                    val id = UUID.randomUUID().toString()
-                    
-                    statement.setString(1, id)
-                    statement.setString(2, gpsData.meta.exerciseId)
-                    statement.setTimestamp(3, Timestamp.from(gpsData.meta.timestamp.toJavaInstant()))
-                    statement.setTimestamp(4, Timestamp.from(position.timestamp.toJavaInstant()))
-                    statement.setDouble(5, position.latitude)
-                    statement.setDouble(6, position.longitude)
-                    statement.setDouble(7, position.altitude)
-                    statement.setDouble(8, position.speed)
-                    statement.setDouble(9, position.accuracy)
-                    
-                    statement.addBatch()
+        runBlocking {
+            val dataToInsert = gpsData.positions.map { position ->
+                buildJsonObject {
+                    put("id", UUID.randomUUID().toString())
+                    put("exercise_id", gpsData.meta.exerciseId)
+                    put("timestamp", gpsData.meta.timestamp.toClickHouseDateTime())
+                    put("position_timestamp", position.timestamp.toClickHouseDateTime())
+                    put("latitude", position.latitude)
+                    put("longitude", position.longitude)
+                    put("altitude", position.altitude)
+                    put("speed", position.speed)
+                    put("accuracy", position.accuracy)
                 }
-                
-                statement.executeBatch()
             }
+            
+            clickHouseServiceClient.insert("gps_data", dataToInsert)
         }
     }
     
     fun getGPSDataByExerciseId(exerciseId: String): List<GPSData> {
-        val result = mutableMapOf<String, MutableList<GPSPosition>>()
-        val metadata = mutableMapOf<String, ExerciseMetadata>()
-        
-        getConnection().use { connection ->
-            val sql = """
-                SELECT id, exercise_id, timestamp, position_timestamp, 
-                       latitude, longitude, altitude, speed, accuracy
-                FROM gps_data
-                WHERE exercise_id = ?
-                ORDER BY timestamp, position_timestamp
-            """.trimIndent()
+        return try {
+            val columns = listOf("id", "exercise_id", "timestamp", "position_timestamp", 
+                               "latitude", "longitude", "altitude", "speed", "accuracy")
+            val filters = mapOf("exercise_id" to exerciseId)
+            val orderBy = "timestamp ASC, position_timestamp ASC"
             
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, exerciseId)
-                
-                statement.executeQuery().use { resultSet ->
-                    while (resultSet.next()) {
-                        val id = resultSet.getString("id")
-                        val exerciseIdFromDb = resultSet.getString("exercise_id")
-                        val timestamp = resultSet.getTimestamp("timestamp").toInstant().toKotlinInstant()
-                        
-                        if (!metadata.containsKey(exerciseIdFromDb)) {
-                            metadata[exerciseIdFromDb] = ExerciseMetadata(
-                                id = id,
-                                exerciseId = exerciseIdFromDb,
-                                timestamp = timestamp
-                            )
-                        }
-                        
-                        val position = createGPSPositionFromResultSet(resultSet)
-                        
-                        if (!result.containsKey(exerciseIdFromDb)) {
-                            result[exerciseIdFromDb] = mutableListOf()
-                        }
-                        
-                        result[exerciseIdFromDb]?.add(position)
-                    }
-                }
+            val result = runBlocking {
+                clickHouseServiceClient.select("gps_data", columns, filters, orderBy)
             }
+            
+            // Группировка результатов по exercise_id
+            val groupedResults = result.mapNotNull { element ->
+                try {
+                    if (element !is JsonObject) {
+                        logger.warn("Expected JsonObject but got ${element::class.simpleName}")
+                        return@mapNotNull null
+                    }
+                    
+                    val id = element["id"]?.jsonPrimitive?.contentOrNull ?: UUID.randomUUID().toString()
+                    val exerciseIdFromDb = element["exercise_id"]?.jsonPrimitive?.contentOrNull ?: ""
+                    val timestampStr = element["timestamp"]?.jsonPrimitive?.contentOrNull ?: ""
+                    val positionTimestampStr = element["position_timestamp"]?.jsonPrimitive?.contentOrNull ?: ""
+                    val latitude = element["latitude"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                    val longitude = element["longitude"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                    val altitude = element["altitude"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                    val speed = element["speed"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                    val accuracy = element["accuracy"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                    
+                    val timestamp = parseClickHouseDateTime(timestampStr)
+                    val positionTimestamp = parseClickHouseDateTime(positionTimestampStr)
+                    
+                    Triple(
+                        exerciseIdFromDb,
+                        ExerciseMetadata(id = id, exerciseId = exerciseIdFromDb, timestamp = timestamp),
+                        GPSPosition(
+                            timestamp = positionTimestamp,
+                            latitude = latitude,
+                            longitude = longitude,
+                            altitude = altitude,
+                            speed = speed,
+                            accuracy = accuracy
+                        )
+                    )
+                } catch (e: Exception) {
+                    logger.error("Error mapping GPS data: ${e.message}", e)
+                    null
+                }
+            }.groupBy { it.first }
+            
+            // Преобразуем сгруппированные результаты в список GPSData
+            groupedResults.map { (exerciseId, triples) ->
+                val metadata = triples.first().second
+                val positions = triples.map { it.third }
+                
+                GPSData(
+                    meta = metadata,
+                    positions = positions
+                )
+            }
+        } catch (e: Exception) {
+            logger.error("Error retrieving GPS data: ${e.message}", e)
+            emptyList()
         }
-        
-        return result.map { (exerciseId, positions) ->
-            GPSData(
-                meta = metadata[exerciseId] ?: error("Metadata not found for exercise ID: $exerciseId"),
-                positions = positions
-            )
-        }
-    }
-    
-    private fun createGPSPositionFromResultSet(resultSet: ResultSet): GPSPosition {
-        val positionTimestamp = resultSet.getTimestamp("position_timestamp").toInstant().toKotlinInstant()
-        val latitude = resultSet.getDouble("latitude")
-        val longitude = resultSet.getDouble("longitude")
-        val altitude = resultSet.getDouble("altitude")
-        val speed = resultSet.getDouble("speed")
-        val accuracy = resultSet.getDouble("accuracy")
-        
-        return GPSPosition(
-            timestamp = positionTimestamp,
-            latitude = latitude,
-            longitude = longitude,
-            altitude = altitude,
-            speed = speed,
-            accuracy = accuracy
-        )
     }
 }

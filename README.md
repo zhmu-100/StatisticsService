@@ -14,15 +14,69 @@ ktor {
   application {
     modules = [ com.mad.statistics.ApplicationKt.module ]
   }
-  database {
-    url = ${?DB_URL}
-    user = ${?DB_USER}
-    password = ${?DB_PASSWORD}
-  }
 }
 ```
 
 Default port for this service is 8082. (Application.kt)
+
+## Start:
+
+Connect to ClickHouse
+
+```plaintext
+./clickhouse client --user default
+```
+
+```plaintext
+USE test_db
+```
+
+Create tables
+
+table gps_data:
+
+```plaintext
+CREATE TABLE IF NOT EXISTS gps_data (
+    id String,
+    exercise_id String,
+    timestamp DateTime64(3),
+    position_timestamp DateTime64(3),
+    latitude Float64,
+    longitude Float64,
+    altitude Float64,
+    speed Float64,
+    accuracy Float64
+) ENGINE = MergeTree()
+ORDER BY (exercise_id, timestamp)
+SETTINGS index_granularity = 8192;
+```
+
+table heart_rate_data
+
+```plaintext
+CREATE TABLE IF NOT EXISTS heart_rate_data (
+    id String,
+    exercise_id String,
+    timestamp DateTime64(3),
+    bpm Int32
+) ENGINE = MergeTree()
+ORDER BY (exercise_id, timestamp)
+SETTINGS index_granularity = 8192;
+```
+
+table calories_data
+
+```plaintext
+
+CREATE TABLE IF NOT EXISTS calories_data (
+    id String,
+    user_id String,
+    timestamp DateTime64(3),
+    calories Float64
+) ENGINE = MergeTree()
+ORDER BY (user_id, timestamp)
+SETTINGS index_granularity = 8192;
+```
 
 ## Routes:
 

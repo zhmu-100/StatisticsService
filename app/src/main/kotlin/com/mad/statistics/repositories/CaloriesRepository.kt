@@ -1,70 +1,76 @@
 package com.mad.statistics.repositories
 
+import com.mad.statistics.clients.ClickHouseServiceClient
 import com.mad.statistics.models.CaloriesData
 import com.mad.statistics.models.common.UserMetadata
-import com.mad.statistics.utils.toJavaInstant
-import kotlinx.datetime.toKotlinInstant
-import java.sql.Timestamp
+import com.mad.statistics.utils.toClickHouseDateTime
+import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.Instant
+import kotlinx.serialization.json.*
 import java.util.UUID
 
-class CaloriesRepository : RepositoryBase() {
-    
+class CaloriesRepository(clickHouseServiceClient: ClickHouseServiceClient) : RepositoryBase(clickHouseServiceClient) {
+
     fun saveCaloriesData(caloriesData: CaloriesData) {
-        getConnection().use { connection ->
-            val sql = """
-                INSERT INTO calories_data (id, user_id, timestamp, calories)
-                VALUES (?, ?, ?, ?)
-            """.trimIndent()
-            
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, caloriesData.meta.id.ifEmpty { UUID.randomUUID().toString() })
-                statement.setString(2, caloriesData.meta.userId)
-                statement.setTimestamp(3, Timestamp.from(caloriesData.meta.timestamp.toJavaInstant()))
-                statement.setDouble(4, caloriesData.calories)
-                
-                statement.executeUpdate()
+        runBlocking {
+            val dataToInsert = buildJsonObject {
+                put("id", caloriesData.meta.id.ifEmpty { UUID.randomUUID().toString() })
+                put("user_id", caloriesData.meta.userId)
+                put("timestamp", caloriesData.meta.timestamp.toClickHouseDateTime())
+                put("calories", caloriesData.calories)
             }
+            
+            clickHouseServiceClient.insert("calories_data", listOf(dataToInsert))
         }
     }
-    
+
     fun getCaloriesDataByUserId(userId: String): List<CaloriesData> {
-        val result = mutableListOf<CaloriesData>()
-        
-        getConnection().use { connection ->
-            val sql = """
-                SELECT id, user_id, timestamp, calories
-                FROM calories_data
-                WHERE user_id = ?
-                ORDER BY timestamp
-            """.trimIndent()
+        return try {
+            val columns = listOf("id", "user_id", "timestamp", "calories")
+            val filters = mapOf("user_id" to userId)
+            val orderBy = "timestamp ASC"
             
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, userId)
-                
-                statement.executeQuery().use { resultSet ->
-                    while (resultSet.next()) {
-                        val id = resultSet.getString("id")
-                        val userIdFromDb = resultSet.getString("user_id")
-                        val timestamp = resultSet.getTimestamp("timestamp").toInstant().toKotlinInstant()
-                        val calories = resultSet.getDouble("calories")
-                        
-                        val metadata = UserMetadata(
+            val result = runBlocking {
+                clickHouseServiceClient.select("calories_data", columns, filters, orderBy)
+            }
+            
+            // Преобразуем результат в список CaloriesData
+            result.mapNotNull { element ->
+                try {
+                    if (element !is JsonObject) {
+                        logger.warn("Expected JsonObject but got ${element::class.simpleName}")
+                        return@mapNotNull null
+                    }
+                    
+                    val id = element["id"]?.jsonPrimitive?.contentOrNull ?: UUID.randomUUID().toString()
+                    val userIdFromDb = element["user_id"]?.jsonPrimitive?.contentOrNull ?: ""
+                    val timestampStr = element["timestamp"]?.jsonPrimitive?.contentOrNull ?: ""
+                    val calories = element["calories"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                    
+                    val timestamp = try {
+                        Instant.parse(timestampStr)
+                    } catch (e: Exception) {
+                        logger.error("Error parsing timestamp: $timestampStr", e)
+                        Instant.fromEpochMilliseconds(0)
+                    }
+                    
+                    CaloriesData(
+                        meta = UserMetadata(
                             id = id,
                             userId = userIdFromDb,
                             timestamp = timestamp
-                        )
-                        
-                        result.add(
-                            CaloriesData(
-                                meta = metadata,
-                                calories = calories
-                            )
-                        )
-                    }
+                        ),
+                        calories = calories
+                    )
+                } catch (e: Exception) {
+                    logger.error("Error mapping calories data: ${e.message}", e)
+                    null
                 }
             }
+        } catch (e: Exception) {
+            logger.error("Error retrieving calories data: ${e.message}", e)
+            emptyList()
         }
-        
-        return result
     }
+    
 }

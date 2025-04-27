@@ -1,70 +1,51 @@
 package com.mad.statistics.repositories
 
+import com.mad.statistics.clients.ClickHouseServiceClient
 import com.mad.statistics.models.HeartRateData
 import com.mad.statistics.models.common.ExerciseMetadata
-import com.mad.statistics.utils.toJavaInstant
-import kotlinx.datetime.toKotlinInstant
-import java.sql.Timestamp
+import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.Instant
+import kotlinx.serialization.json.*
 import java.util.UUID
 
-class HeartRateRepository : RepositoryBase() {
+class HeartRateRepository(clickHouseServiceClient: ClickHouseServiceClient) : RepositoryBase(clickHouseServiceClient) {
     
     fun saveHeartRateData(heartRateData: HeartRateData) {
-        getConnection().use { connection ->
-            val sql = """
-                INSERT INTO heart_rate_data (id, exercise_id, timestamp, bpm)
-                VALUES (?, ?, ?, ?)
-            """.trimIndent()
-            
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, heartRateData.meta.id.ifEmpty { UUID.randomUUID().toString() })
-                statement.setString(2, heartRateData.meta.exerciseId)
-                statement.setTimestamp(3, Timestamp.from(heartRateData.meta.timestamp.toJavaInstant()))
-                statement.setInt(4, heartRateData.bpm)
-                
-                statement.executeUpdate()
+        runBlocking {
+            val dataToInsert = buildJsonObject {
+                put("id", heartRateData.meta.id.ifEmpty { UUID.randomUUID().toString() })
+                put("exercise_id", heartRateData.meta.exerciseId)
+                put("timestamp", heartRateData.meta.timestamp.toString())
+                put("bpm", heartRateData.bpm)
             }
+            
+            clickHouseServiceClient.insert("heart_rate_data", listOf(dataToInsert))
         }
     }
     
     fun getHeartRateDataByExerciseId(exerciseId: String): List<HeartRateData> {
-        val result = mutableListOf<HeartRateData>()
-        
-        getConnection().use { connection ->
-            val sql = """
-                SELECT id, exercise_id, timestamp, bpm
-                FROM heart_rate_data
-                WHERE exercise_id = ?
-                ORDER BY timestamp
-            """.trimIndent()
+        return runBlocking {
+            val columns = listOf("id", "exercise_id", "timestamp", "bpm")
+            val filters = mapOf("exercise_id" to exerciseId)
+            val orderBy = "timestamp ASC"
             
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, exerciseId)
+            val result = clickHouseServiceClient.select("heart_rate_data", columns, filters, orderBy)
+            
+            result.map { row ->
+                val id = row.jsonObject["id"]?.jsonPrimitive?.content ?: UUID.randomUUID().toString()
+                val exerciseIdFromDb = row.jsonObject["exercise_id"]?.jsonPrimitive?.content ?: ""
+                val timestamp = Instant.parse(row.jsonObject["timestamp"]?.jsonPrimitive?.content ?: "")
+                val bpm = row.jsonObject["bpm"]?.jsonPrimitive?.int ?: 0
                 
-                statement.executeQuery().use { resultSet ->
-                    while (resultSet.next()) {
-                        val id = resultSet.getString("id")
-                        val exerciseIdFromDb = resultSet.getString("exercise_id")
-                        val timestamp = resultSet.getTimestamp("timestamp").toInstant().toKotlinInstant()
-                        val bpm = resultSet.getInt("bpm")
-                        
-                        val metadata = ExerciseMetadata(
-                            id = id,
-                            exerciseId = exerciseIdFromDb,
-                            timestamp = timestamp
-                        )
-                        
-                        result.add(
-                            HeartRateData(
-                                meta = metadata,
-                                bpm = bpm
-                            )
-                        )
-                    }
-                }
+                HeartRateData(
+                    meta = ExerciseMetadata(
+                        id = id,
+                        exerciseId = exerciseIdFromDb,
+                        timestamp = timestamp
+                    ),
+                    bpm = bpm
+                )
             }
         }
-        
-        return result
     }
 }

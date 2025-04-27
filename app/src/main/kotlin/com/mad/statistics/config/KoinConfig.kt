@@ -1,5 +1,6 @@
 package com.mad.statistics.config
 
+import com.mad.statistics.clients.ClickHouseServiceClient
 import com.mad.statistics.repositories.CaloriesRepository
 import com.mad.statistics.repositories.GPSRepository
 import com.mad.statistics.repositories.HeartRateRepository
@@ -19,10 +20,13 @@ fun Application.configureKoin() {
 }
 
 val appModule = module {
+    // ClickHouse Service Client
+    single { ClickHouseServiceClient(AppConfig.clickhouseServiceUrl) }
+    
     // Репозитории
-    single { GPSRepository() }
-    single { HeartRateRepository() }
-    single { CaloriesRepository() }
+    single { GPSRepository(get()) }
+    single { HeartRateRepository(get()) }
+    single { CaloriesRepository(get()) }
     
     // Сервисы
     single { GPSService(get()) }
