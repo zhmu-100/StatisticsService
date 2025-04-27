@@ -61,7 +61,7 @@ class ClickHouseServiceClient(
                     }
                 }
             }
-
+    
             val requestBody = buildJsonObject {
                 put("table", table)
                 put("columns", JsonArray(columns.map { JsonPrimitive(it) }))
@@ -70,16 +70,49 @@ class ClickHouseServiceClient(
                     put("orderBy", orderBy)
                 }
             }
-
+    
+            logger.info("Sending select request to $baseUrl/select with body: $requestBody")
+    
             val response = client.post("$baseUrl/select") {
                 contentType(ContentType.Application.Json)
                 setBody(requestBody.toString())
             }
-
+    
             val responseText = response.bodyAsText()
-            return Json.parseToJsonElement(responseText).jsonArray
+            logger.info("Select response: ${response.status}, body: $responseText")
+    
+            // Парсим JSON-ответ
+            val jsonElement = Json.parseToJsonElement(responseText)
+            
+            // Проверяем формат ответа и извлекаем результат
+            if (jsonElement is JsonObject) {
+                // Если ответ в формате {"status": "success", "result": [...]}
+                if (jsonElement.containsKey("result")) {
+                    val resultElement = jsonElement["result"]
+                    if (resultElement is JsonArray) {
+                        return resultElement
+                    }
+                }
+                // Если ответ в формате {"status": "success", "data": [...]}
+                if (jsonElement.containsKey("data")) {
+                    val dataElement = jsonElement["data"]
+                    if (dataElement is JsonArray) {
+                        return dataElement
+                    }
+                }
+                // Если ответ в формате {"rows": [...]}
+                if (jsonElement.containsKey("rows")) {
+                    val rowsElement = jsonElement["rows"]
+                    if (rowsElement is JsonArray) {
+                        return rowsElement
+                    }
+                }
+            }
+            
+            // Если не удалось извлечь массив данных, возвращаем пустой массив
+            return JsonArray(emptyList())
         } catch (e: Exception) {
-            logger.error("Error selecting data", e)
+            logger.error("Error selecting data: ${e.message}", e)
             throw e
         }
     }

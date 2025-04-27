@@ -8,26 +8,22 @@ Default configuration for this microservice:
 
 ## Environment Setup
 
-Create an `.env` file in the project root with the following keys:
-
-```
-MODE=LOCAL
-PORT=8080
-
-CLICKHOUSE_SERVICE_URL=jdbc:clickhouse://localhost:8080/test_db
-DATABASE_USER=default
-DATABASE_PASSWORD=
-
-```
-
 ```plaintext
 ktor {
-  deployment {
-    port = ${?PORT}
-  }
-  application {
-    modules = [ com.mad.statistics.ApplicationKt.module ]
-  }
+    deployment {
+        port = ${?PORT}
+    }
+    application {
+        modules = [ com.mad.statistics.ApplicationKt.module ]
+    }
+    database {
+        mode = "local"
+        mode = ${?DB_MODE}
+        host = "localhost"
+        host = ${?DB_HOST}
+        port = "8080"
+        port = ${?DB_PORT}
+    }
 }
 ```
 
@@ -49,6 +45,10 @@ Connect to ClickHouse
 
 ```plaintext
 USE test_db
+```
+
+```plaintext
+CREATE DATABASE IF NOT EXISTS test_db;
 ```
 
 Create tables
