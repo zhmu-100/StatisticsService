@@ -37,9 +37,9 @@ Default port for this service is 8082. (Application.kt)
 
 Download ClickHouse
 
-```plaintext
-https://clickhouse.com/docs/getting-started/quick-start
-```
+
+<https://clickhouse.com/docs/getting-started/quick-start>
+
 
 Connect to ClickHouse
 
