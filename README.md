@@ -48,6 +48,10 @@ Connect to ClickHouse
 ```
 
 ```plaintext
+CREATE DATABASE test_db;
+```
+
+```plaintext
 USE test_db
 ```
 
