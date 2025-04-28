@@ -19,7 +19,6 @@ class ValidationUtilsTest {
             exerciseId = "exercise1",
             timestamp = dummyTimestamp
         )
-        // Should not throw
         ValidationUtils.validateExerciseMetadata(metadata)
     }
 
