@@ -37,6 +37,9 @@ Download ClickHouse
 https://clickhouse.com/docs/getting-started/quick-start
 ```
 
+```plaintext
+./clickhouse server
+```
 Connect to ClickHouse
 
 ```plaintext
