@@ -1,5 +1,7 @@
 package com.mad.statistics
 
+import com.mad.client.LoggerClient
+import com.mad.model.LogLevel
 import com.mad.statistics.config.AppConfig
 import com.mad.statistics.config.DatabaseConfig
 import com.mad.statistics.config.configureKoin
@@ -21,15 +23,31 @@ import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 
 fun main() {
-    val logger = LoggerFactory.getLogger("com.mad.statistics.Application")
-    logger.info("Starting Statistics Service with configuration:")
-    logger.info("Port: ${AppConfig.port}")
-    logger.info("Database Mode: ${AppConfig.dbMode}")
-    logger.info("Database Host: ${AppConfig.dbHost}")
-    logger.info("Database Port: ${AppConfig.dbPort}")
-    logger.info("ClickHouse Service URL: ${AppConfig.clickhouseServiceUrl}")
-    logger.info("Redis Host: ${AppConfig.redisHost}")
-    logger.info("Redis Port: ${AppConfig.redisPort}")
+    val logger = LoggerClient()
+    logger.logActivity(
+        event = "Starting Statistics Service with configuration:",
+        level = LogLevel.INFO
+    )
+    logger.logActivity(
+        event = "Port: ${AppConfig.port}",
+        level = LogLevel.INFO
+    )
+    logger.logActivity(
+        event = "Database Mode: ${AppConfig.dbMode}",
+        level = LogLevel.INFO
+    )
+    logger.logActivity(
+        event = "Database Host: ${AppConfig.dbHost}",
+        level = LogLevel.INFO
+    )
+    logger.logActivity(
+        event = "Database Port: ${AppConfig.dbPort}",
+        level = LogLevel.INFO
+    )
+    logger.logActivity(
+        event = "ClickHouse Service URL: ${AppConfig.clickhouseServiceUrl}",
+        level = LogLevel.INFO
+    )
 
     embeddedServer(Netty, port = AppConfig.port, host = "0.0.0.0") {
         module()
@@ -72,8 +90,18 @@ fun Application.module() {
         allowMethod(io.ktor.http.HttpMethod.Post)
     }
     
-    // Используем наш новый обработчик ошибок с логированием
-    configureErrorHandling()
+    install(StatusPages) {
+        exception<Throwable> { call, cause ->
+            val logger = LoggerClient()
+            logger.logError(
+                event = "Internal Server Error",
+                errorMessage = cause.message ?: "Unknown error",
+                stackTrace = cause.stackTraceToString()
+            )
+            call.respondText(text = "500: ${cause.message}", status = io.ktor.http.HttpStatusCode.InternalServerError)
+        }
+    }
+
     
     configureGPSRoutes()
     configureHeartRateRoutes()

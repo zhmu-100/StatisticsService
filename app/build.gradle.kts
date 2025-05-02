@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.9.0"
+    kotlin("jvm") version "2.1.0"
     kotlin("plugin.serialization") version "1.9.0"
     application
     jacoco
@@ -16,6 +16,7 @@ application {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://jitpack.io") }
 }
 
 val ktorVersion = "2.3.3"
@@ -32,6 +33,9 @@ dependencies {
     implementation("io.ktor:ktor-server-call-logging:$ktorVersion")
     implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
     implementation("io.ktor:ktor-server-cors:$ktorVersion")
+
+    // Logger from feat/add-logger branch
+    implementation("com.github.poplopok:Logger:1.0.6")
 
     implementation("io.lettuce:lettuce-core:6.2.4.RELEASE")
 
@@ -110,4 +114,8 @@ tasks.check {
 
 tasks.build {
     dependsOn(tasks.check)
+}
+
+kotlin {
+    jvmToolchain(17)
 }

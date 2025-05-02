@@ -1,5 +1,7 @@
 package com.mad.statistics.clients
 
+import com.mad.client.LoggerClient
+import com.mad.model.LogLevel
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -8,13 +10,12 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.*
-import org.slf4j.LoggerFactory
 import com.mad.statistics.config.AppConfig
 
 class ClickHouseServiceClient(
     private val baseUrl: String = "http://localhost:8080"
 ) {
-    private val logger = LoggerFactory.getLogger(this::class.java)
+    private val loggerClient = LoggerClient()
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json {
@@ -37,10 +38,17 @@ class ClickHouseServiceClient(
                 contentType(ContentType.Application.Json)
             }
             
-            logger.info("Connection check response: ${response.status}")
+            loggerClient.logActivity(
+                event = "Connection check response: ${response.status}",
+                level = LogLevel.INFO
+            )
             response.status.isSuccess()
         } catch (e: Exception) {
-            logger.error("Error checking connection to ClickHouse Service: ${e.message}", e)
+            loggerClient.logError(
+                event = "Error checking connection to ClickHouse Service",
+                errorMessage = e.message ?: "Unknown error",
+                stackTrace = e.stackTraceToString()
+            )
             false
         }
     }
@@ -58,13 +66,23 @@ class ClickHouseServiceClient(
             }
     
             if (response.status.isSuccess()) {
-                logger.info("Insert response: ${response.status}")
+                loggerClient.logActivity(
+                    event = "Insert response: ${response.status}",
+                    level = LogLevel.INFO
+                )
             } else {
                 val responseText = response.bodyAsText()
-                logger.error("Insert error: ${response.status}, body: $responseText")
+                loggerClient.logError(
+                    event = "Insert error: ${response.status}",
+                    errorMessage = "body: $responseText"
+                )
             }
         } catch (e: Exception) {
-            logger.error("Error inserting data: ${e.message}", e)
+            loggerClient.logError(
+                event = "Error inserting data",
+                errorMessage = e.message ?: "Unknown error",
+                stackTrace = e.stackTraceToString()
+            )
             throw e
         }
     }
@@ -92,7 +110,10 @@ class ClickHouseServiceClient(
                 }
             }
     
-            logger.info("Sending select request to $baseUrl/select with body: $requestBody")
+            loggerClient.logActivity(
+                event = "Sending select request to $baseUrl/select with body: $requestBody",
+                level = LogLevel.INFO
+            )
     
             val response = client.post("$baseUrl/select") {
                 contentType(ContentType.Application.Json)
@@ -100,12 +121,13 @@ class ClickHouseServiceClient(
             }
     
             val responseText = response.bodyAsText()
-            logger.info("Select response: ${response.status}, body: $responseText")
+            loggerClient.logActivity(
+                event = "Select response: ${response.status}, body: $responseText",
+                level = LogLevel.INFO
+            )
     
-            // Парсим JSON-ответ
             val jsonElement = Json.parseToJsonElement(responseText)
             
-            // Проверяем формат ответа и извлекаем результат
             if (jsonElement is JsonObject) {
                 // Если ответ в формате {"status": "success", "result": [...]}
                 if (jsonElement.containsKey("result")) {
@@ -133,7 +155,11 @@ class ClickHouseServiceClient(
             // Если не удалось извлечь массив данных, возвращаем пустой массив
             return JsonArray(emptyList())
         } catch (e: Exception) {
-            logger.error("Error selecting data: ${e.message}", e)
+            loggerClient.logError(
+                event = "Error selecting data",
+                errorMessage = e.message ?: "Unknown error",
+                stackTrace = e.stackTraceToString()
+            )
             throw e
         }
     }

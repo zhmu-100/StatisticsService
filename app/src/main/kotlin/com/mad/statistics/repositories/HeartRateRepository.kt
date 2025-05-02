@@ -5,6 +5,8 @@ import com.mad.statistics.models.HeartRateData
 import com.mad.statistics.models.common.ExerciseMetadata
 import com.mad.statistics.utils.toClickHouseDateTime
 import kotlinx.coroutines.runBlocking
+import com.mad.statistics.utils.parseClickHouseDateTime
+
 import kotlinx.datetime.Instant
 import kotlinx.serialization.json.*
 import java.util.UUID
@@ -38,7 +40,7 @@ class HeartRateRepository(clickHouseServiceClient: ClickHouseServiceClient) : Re
             result.mapNotNull { element ->
                 try {
                     if (element !is JsonObject) {
-                        logger.warn("Expected JsonObject but got ${element::class.simpleName}")
+                        logWarn("Expected JsonObject but got ${element::class.simpleName}")
                         return@mapNotNull null
                     }
                     
@@ -48,9 +50,9 @@ class HeartRateRepository(clickHouseServiceClient: ClickHouseServiceClient) : Re
                     val bpm = element["bpm"]?.jsonPrimitive?.intOrNull ?: 0
                     
                     val timestamp = try {
-                        Instant.parse(timestampStr)
+                        parseClickHouseDateTime(timestampStr)
                     } catch (e: Exception) {
-                        logger.error("Error parsing timestamp: $timestampStr", e)
+                        logError("Error parsing timestamp: $timestampStr", e)
                         Instant.fromEpochMilliseconds(0)
                     }
                     
@@ -63,12 +65,12 @@ class HeartRateRepository(clickHouseServiceClient: ClickHouseServiceClient) : Re
                         bpm = bpm
                     )
                 } catch (e: Exception) {
-                    logger.error("Error mapping heart rate data: ${e.message}", e)
+                    logError("Error mapping heart rate data: ${e.message}", e)
                     null
                 }
             }
         } catch (e: Exception) {
-            logger.error("Error retrieving heart rate data: ${e.message}", e)
+            logError("Error retrieving heart rate data: ${e.message}", e)
             emptyList()
         }
     }

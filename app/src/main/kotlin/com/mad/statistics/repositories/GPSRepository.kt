@@ -48,7 +48,7 @@ class GPSRepository(clickHouseServiceClient: ClickHouseServiceClient) : Reposito
             val groupedResults = result.mapNotNull { element ->
                 try {
                     if (element !is JsonObject) {
-                        logger.warn("Expected JsonObject but got ${element::class.simpleName}")
+                        logWarn("Expected JsonObject but got ${element::class.simpleName}")
                         return@mapNotNull null
                     }
                     
@@ -78,7 +78,7 @@ class GPSRepository(clickHouseServiceClient: ClickHouseServiceClient) : Reposito
                         )
                     )
                 } catch (e: Exception) {
-                    logger.error("Error mapping GPS data: ${e.message}", e)
+                    logError("Error mapping GPS data: ${e.message}", e)
                     null
                 }
             }.groupBy { it.first }
@@ -94,7 +94,7 @@ class GPSRepository(clickHouseServiceClient: ClickHouseServiceClient) : Reposito
                 )
             }
         } catch (e: Exception) {
-            logger.error("Error retrieving GPS data: ${e.message}", e)
+            logError("Error retrieving GPS data: ${e.message}", e)
             emptyList()
         }
     }
