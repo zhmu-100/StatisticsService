@@ -1,5 +1,6 @@
 package com.mad.statistics.config
 
+import com.mad.client.LoggerClient
 import com.mad.statistics.clients.ClickHouseServiceClient
 import com.mad.statistics.repositories.CaloriesRepository
 import com.mad.statistics.repositories.GPSRepository
@@ -8,14 +9,24 @@ import com.mad.statistics.services.CaloriesService
 import com.mad.statistics.services.GPSService
 import com.mad.statistics.services.HeartRateService
 import io.ktor.server.application.*
+import io.ktor.server.config.*
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
-import org.koin.logger.slf4jLogger
 
 fun Application.configureKoin() {
+    val redisHost = System.getenv("REDIS_HOST") ?: "localhost"
+    val redisPort = System.getenv("REDIS_PORT")?.toIntOrNull() ?: 6379
+    val redisPassword = System.getenv("REDIS_PASSWORD") ?: ""
+
     install(Koin) {
-        slf4jLogger()
-        modules(appModule)
+        
+        properties(mapOf(
+            "redis.host" to redisHost,
+            "redis.port" to redisPort.toString(),
+            "redis.password" to redisPassword
+        ))
+        
+        modules(appModule, loggingModule)
     }
 }
 
@@ -32,4 +43,21 @@ val appModule = module {
     single { GPSService(get()) }
     single { HeartRateService(get()) }
     single { CaloriesService(get()) }
+}
+
+// Модуль для логирования
+val loggingModule = module {
+    // Создаем единственный экземпляр LoggerClient для всего приложения
+    single { 
+        LoggerClient(
+            host = getProperty("redis.host", "localhost"),
+            port = getProperty("redis.port", "6379").toInt(),
+            password = getProperty("redis.password", "")
+        ).also { logger ->
+            // Регистрируем закрытие клиента при остановке приложения
+            Runtime.getRuntime().addShutdownHook(Thread {
+                logger.close()
+            })
+        }
+    }
 }

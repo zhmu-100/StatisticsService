@@ -8,6 +8,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Instant
 import kotlinx.serialization.json.*
 import java.util.UUID
+import com.mad.statistics.utils.parseClickHouseDateTime
 
 class CaloriesRepository(clickHouseServiceClient: ClickHouseServiceClient) : RepositoryBase(clickHouseServiceClient) {
 
@@ -38,7 +39,7 @@ class CaloriesRepository(clickHouseServiceClient: ClickHouseServiceClient) : Rep
             result.mapNotNull { element ->
                 try {
                     if (element !is JsonObject) {
-                        logger.warn("Expected JsonObject but got ${element::class.simpleName}")
+                        logWarn("Expected JsonObject but got ${element::class.simpleName}")
                         return@mapNotNull null
                     }
                     
@@ -48,9 +49,9 @@ class CaloriesRepository(clickHouseServiceClient: ClickHouseServiceClient) : Rep
                     val calories = element["calories"]?.jsonPrimitive?.doubleOrNull ?: 0.0
                     
                     val timestamp = try {
-                        Instant.parse(timestampStr)
+                        parseClickHouseDateTime(timestampStr)
                     } catch (e: Exception) {
-                        logger.error("Error parsing timestamp: $timestampStr", e)
+                        logError("Error parsing timestamp: $timestampStr", e)
                         Instant.fromEpochMilliseconds(0)
                     }
                     
@@ -63,12 +64,12 @@ class CaloriesRepository(clickHouseServiceClient: ClickHouseServiceClient) : Rep
                         calories = calories
                     )
                 } catch (e: Exception) {
-                    logger.error("Error mapping calories data: ${e.message}", e)
+                    logError("Error mapping calories data: ${e.message}", e)
                     null
                 }
             }
         } catch (e: Exception) {
-            logger.error("Error retrieving calories data: ${e.message}", e)
+            logError("Error retrieving calories data: ${e.message}", e)
             emptyList()
         }
     }

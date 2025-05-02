@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.9.0"
+    kotlin("jvm") version "2.1.0"
     kotlin("plugin.serialization") version "1.9.0"
     application
 }
@@ -15,6 +15,8 @@ application {
 
 repositories {
     mavenCentral()
+	maven { url = uri("https://jitpack.io") }
+
 }
 
 val ktorVersion = "2.3.3"
@@ -33,6 +35,8 @@ dependencies {
     implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
     implementation("io.ktor:ktor-server-cors:$ktorVersion")
     
+	implementation("com.github.poplopok:Logger:1.0.6")
+
 
         // Добавьте эти зависимости
     implementation("io.ktor:ktor-client-core:$ktorVersion")
@@ -40,8 +44,7 @@ dependencies {
     implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-client-json:$ktorVersion")
 
-    
-    // Koin
+
     implementation("io.insert-koin:koin-core:$koinVersion")
     implementation("io.insert-koin:koin-ktor:$koinVersion")
     implementation("io.insert-koin:koin-logger-slf4j:$koinVersion")
@@ -70,4 +73,7 @@ tasks.withType<KotlinCompile> {
 
 tasks.test {
     useJUnitPlatform()
+}
+kotlin {
+    jvmToolchain(17) // or your current version
 }
