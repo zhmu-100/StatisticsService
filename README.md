@@ -9,22 +9,18 @@ Default configuration for this microservice:
 ## Environment Setup
 
 ```plaintext
-ktor {
-    deployment {
-        port = ${?PORT}
-    }
-    application {
-        modules = [ com.mad.statistics.ApplicationKt.module ]
-    }
-    database {
-        mode = "local"
-        mode = ${?DB_MODE}
-        host = "localhost"
-        host = ${?DB_HOST}
-        port = "8080"
-        port = ${?DB_PORT}
-    }
-}
+PORT=8080
+
+# Database
+DB_MODE=local
+DB_HOST=localhost
+DB_PORT=8080
+
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
 ```
 
 Default port for this service is 8082. (Application.kt)
