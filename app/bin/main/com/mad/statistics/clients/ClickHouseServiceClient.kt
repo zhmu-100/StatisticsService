@@ -9,6 +9,7 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
+import com.mad.statistics.config.AppConfig
 
 class ClickHouseServiceClient(
     private val baseUrl: String = "http://localhost:8080"
@@ -21,6 +22,26 @@ class ClickHouseServiceClient(
                 isLenient = true
                 ignoreUnknownKeys = true
             })
+        }
+    }
+
+    suspend fun checkConnection(): Boolean {
+        return try {
+            val endpoint = if (AppConfig.dbMode.equals("gateway", ignoreCase = true)) {
+                "$baseUrl/ping"
+            } else {
+                "$baseUrl/ping"
+            }
+            
+            val response = client.get(endpoint) {
+                contentType(ContentType.Application.Json)
+            }
+            
+            logger.info("Connection check response: ${response.status}")
+            response.status.isSuccess()
+        } catch (e: Exception) {
+            logger.error("Error checking connection to ClickHouse Service: ${e.message}", e)
+            false
         }
     }
 

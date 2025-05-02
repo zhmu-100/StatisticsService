@@ -1,27 +1,32 @@
 package com.mad.statistics.config
 
-import com.clickhouse.jdbc.ClickHouseDataSource
+import com.mad.statistics.clients.ClickHouseServiceClient
 import org.slf4j.LoggerFactory
-import java.sql.Connection
-import java.util.*
-import javax.sql.DataSource
+import kotlinx.coroutines.runBlocking
 
 object DatabaseConfig {
     private val logger = LoggerFactory.getLogger(DatabaseConfig::class.java)
-    private lateinit var dataSource: DataSource
-
+    
     fun init() {
-        val properties = Properties().apply {
-            put("user", AppConfig.databaseUser)
-            put("password", AppConfig.databasePassword)
-            put("compress", "0")
+        try {
+            val clickHouseServiceClient = ClickHouseServiceClient()
+            
+            logger.info("Initializing database connection in ${AppConfig.dbMode} mode")
+            logger.info("Using ClickHouse Service URL: ${AppConfig.clickhouseServiceUrl}")
+            
+            // Проверяем подключение к ClickHouse Service
+            runBlocking {
+                val isConnected = clickHouseServiceClient.checkConnection()
+                if (isConnected) {
+                    logger.info("Successfully connected to ClickHouse Service")
+                } else {
+                    logger.warn("Could not connect to ClickHouse Service")
+                }
+            }
+            
+            logger.info("Database initialized successfully with URL: ${AppConfig.clickhouseServiceUrl}")
+        } catch (e: Exception) {
+            logger.error("Error initializing database: ${e.message}", e)
         }
-        dataSource = ClickHouseDataSource(AppConfig.databaseUrl, properties)
-
-        logger.info("Database initialized successfully with URL: ${AppConfig.clickhouseServiceUrl}")
-    }
-
-    fun getConnection(): Connection {
-        return dataSource.connection
     }
 }

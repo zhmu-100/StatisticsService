@@ -17,21 +17,27 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
+import org.slf4j.LoggerFactory
 
 fun main() {
+    val logger = LoggerFactory.getLogger("com.mad.statistics.Application")
+    logger.info("Starting Statistics Service with configuration:")
+    logger.info("Port: ${AppConfig.port}")
+    logger.info("Database Mode: ${AppConfig.dbMode}")
+    logger.info("Database Host: ${AppConfig.dbHost}")
+    logger.info("Database Port: ${AppConfig.dbPort}")
+    logger.info("ClickHouse Service URL: ${AppConfig.clickhouseServiceUrl}")
+
     embeddedServer(Netty, port = AppConfig.port, host = "0.0.0.0") {
         module()
     }.start(wait = true)
 }
 
 fun Application.module() {
-    // Инициализация базы данных
     DatabaseConfig.init()
     
-    // Настройка Koin для внедрения зависимостей
     configureKoin()
     
-    // Настройка плагинов
     install(ContentNegotiation) {
         json(Json {
             prettyPrint = true
@@ -58,7 +64,6 @@ fun Application.module() {
         }
     }
     
-    // Настройка маршрутов
     configureGPSRoutes()
     configureHeartRateRoutes()
     configureCaloriesRoutes()

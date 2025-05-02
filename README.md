@@ -37,6 +37,9 @@ Download ClickHouse
 https://clickhouse.com/docs/getting-started/quick-start
 ```
 
+```plaintext
+./clickhouse server
+```
 Connect to ClickHouse
 
 ```plaintext
@@ -379,48 +382,3 @@ data class UserMetadata(
 )
 ```
 
-## SQL
-
-### GPS Data Table
-
-```sql
-CREATE TABLE IF NOT EXISTS gps_data (
-    id VARCHAR(255) PRIMARY KEY,
-    exercise_id VARCHAR(255) NOT NULL,
-    timestamp TIMESTAMP NOT NULL,
-    position_timestamp TIMESTAMP NOT NULL,
-    latitude DOUBLE PRECISION NOT NULL,
-    longitude DOUBLE PRECISION NOT NULL,
-    altitude DOUBLE PRECISION NOT NULL,
-    speed DOUBLE PRECISION NOT NULL,
-    accuracy DOUBLE PRECISION NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_gps_exercise_id ON gps_data(exercise_id);
-```
-
-### Heart Rate Data Table
-
-```sql
-CREATE TABLE IF NOT EXISTS heart_rate_data (
-    id VARCHAR(255) PRIMARY KEY,
-    exercise_id VARCHAR(255) NOT NULL,
-    timestamp TIMESTAMP NOT NULL,
-    bpm INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_heart_rate_exercise_id ON heart_rate_data(exercise_id);
-```
-
-### Calories Data Table
-
-```sql
-CREATE TABLE IF NOT EXISTS calories_data (
-    id VARCHAR(255) PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
-    timestamp TIMESTAMP NOT NULL,
-    calories DOUBLE PRECISION NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_calories_user_id ON calories_data(user_id);
-```

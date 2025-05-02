@@ -20,8 +20,8 @@ fun Application.configureKoin() {
 }
 
 val appModule = module {
-    // ClickHouse Service Client
-    single { ClickHouseServiceClient(AppConfig.clickhouseServiceUrl) }
+    // ClickHouse Service Client с использованием конфигурации
+    single { ClickHouseServiceClient() }
     
     // Репозитории
     single { GPSRepository(get()) }
