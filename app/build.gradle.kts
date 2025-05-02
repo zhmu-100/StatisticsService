@@ -4,6 +4,7 @@ plugins {
     kotlin("jvm") version "1.9.0"
     kotlin("plugin.serialization") version "1.9.0"
     application
+    jacoco
 }
 
 group = "com.mad"
@@ -24,7 +25,6 @@ val clickhouseVersion = "0.4.6"
 val kotlinxDatetimeVersion = "0.4.0"
 
 dependencies {
-    // Ktor
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
@@ -32,34 +32,28 @@ dependencies {
     implementation("io.ktor:ktor-server-call-logging:$ktorVersion")
     implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
     implementation("io.ktor:ktor-server-cors:$ktorVersion")
-    
-
-        // Добавьте эти зависимости
     implementation("io.ktor:ktor-client-core:$ktorVersion")
     implementation("io.ktor:ktor-client-cio:$ktorVersion")
     implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-client-json:$ktorVersion")
 
-    
-    // Koin
     implementation("io.insert-koin:koin-core:$koinVersion")
     implementation("io.insert-koin:koin-ktor:$koinVersion")
     implementation("io.insert-koin:koin-logger-slf4j:$koinVersion")
-    
-    // Logging
+
     implementation("ch.qos.logback:logback-classic:$logbackVersion")
-    
-    // ClickHouse
+
     implementation("com.clickhouse:clickhouse-jdbc:$clickhouseVersion")
     implementation("com.clickhouse:clickhouse-http-client:$clickhouseVersion")
-    
 
-    // Kotlinx DateTime
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:$kotlinxDatetimeVersion")
-    
-    // Testing
+
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test:1.9.0")
+    testImplementation("io.mockk:mockk:1.13.5")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.10.0")
 }
 
 tasks.withType<KotlinCompile> {
@@ -70,4 +64,39 @@ tasks.withType<KotlinCompile> {
 
 tasks.test {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+jacoco {
+    toolVersion = "0.8.10"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+    violationRules {
+        rule {
+            element = "BUNDLE"
+            limit {
+                counter = "INSTRUCTION"
+                value = "COVEREDRATIO"
+                minimum = "0.60".toBigDecimal()
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
+}
+
+tasks.build {
+    dependsOn(tasks.check)
 }
