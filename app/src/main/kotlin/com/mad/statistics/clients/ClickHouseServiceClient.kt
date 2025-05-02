@@ -33,11 +33,11 @@ class ClickHouseServiceClient(
             } else {
                 "$baseUrl/ping"
             }
-            
+
             val response = client.get(endpoint) {
                 contentType(ContentType.Application.Json)
             }
-            
+
             loggerClient.logActivity(
                 event = "Connection check response: ${response.status}",
                 level = LogLevel.INFO
@@ -64,7 +64,7 @@ class ClickHouseServiceClient(
                     }.toString()
                 )
             }
-    
+
             if (response.status.isSuccess()) {
                 loggerClient.logActivity(
                     event = "Insert response: ${response.status}",
@@ -86,7 +86,7 @@ class ClickHouseServiceClient(
             throw e
         }
     }
-    
+
 
     suspend fun select(table: String, columns: List<String>, filters: Map<String, Any>, orderBy: String? = null): JsonArray {
         try {
@@ -100,7 +100,7 @@ class ClickHouseServiceClient(
                     }
                 }
             }
-    
+
             val requestBody = buildJsonObject {
                 put("table", table)
                 put("columns", JsonArray(columns.map { JsonPrimitive(it) }))
@@ -109,25 +109,25 @@ class ClickHouseServiceClient(
                     put("orderBy", orderBy)
                 }
             }
-    
+
             loggerClient.logActivity(
                 event = "Sending select request to $baseUrl/select with body: $requestBody",
                 level = LogLevel.INFO
             )
-    
+
             val response = client.post("$baseUrl/select") {
                 contentType(ContentType.Application.Json)
                 setBody(requestBody.toString())
             }
-    
+
             val responseText = response.bodyAsText()
             loggerClient.logActivity(
                 event = "Select response: ${response.status}, body: $responseText",
                 level = LogLevel.INFO
             )
-    
+
             val jsonElement = Json.parseToJsonElement(responseText)
-            
+
             if (jsonElement is JsonObject) {
                 // Если ответ в формате {"status": "success", "result": [...]}
                 if (jsonElement.containsKey("result")) {
@@ -151,7 +151,7 @@ class ClickHouseServiceClient(
                     }
                 }
             }
-            
+
             // Если не удалось извлечь массив данных, возвращаем пустой массив
             return JsonArray(emptyList())
         } catch (e: Exception) {

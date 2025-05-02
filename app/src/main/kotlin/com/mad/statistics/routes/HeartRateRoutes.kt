@@ -12,10 +12,10 @@ import org.koin.ktor.ext.inject
 
 fun Application.configureHeartRateRoutes() {
     val heartRateService: HeartRateService by inject()
-    
+
     // Используем внедрение зависимостей для LoggerClient
     val logger by inject<LoggerClient>()
-    
+
     routing {
         route("/api/statistics") {
             // Получение данных о сердечном ритме по ID упражнения
@@ -25,7 +25,7 @@ fun Application.configureHeartRateRoutes() {
                         "Missing exercise_id parameter",
                         status = HttpStatusCode.BadRequest
                     )
-                
+
                 try {
                     // Логируем запрос данных о сердечном ритме
                     logger.logActivity(
@@ -33,9 +33,9 @@ fun Application.configureHeartRateRoutes() {
                         userId = call.request.headers["User-Id"],
                         additionalData = mapOf("exercise_id" to exerciseId)
                     )
-                    
+
                     val heartRateData = heartRateService.getHeartRateDataByExerciseId(exerciseId)
-                    
+
                     // Логируем успешное получение данных
                     logger.logActivity(
                         event = "Heart rate data retrieved",
@@ -45,7 +45,7 @@ fun Application.configureHeartRateRoutes() {
                             "records_count" to heartRateData.size.toString()
                         )
                     )
-                    
+
                     call.respond(mapOf("heart_rate_data" to heartRateData))
                 } catch (e: Exception) {
                     // Логируем ошибку при получении данных
@@ -55,21 +55,21 @@ fun Application.configureHeartRateRoutes() {
                         userId = call.request.headers["User-Id"],
                         stackTrace = e.stackTraceToString()
                     )
-                    
+
                     call.respondText(
                         "Error retrieving heart rate data: ${e.message}",
                         status = HttpStatusCode.InternalServerError
                     )
                 }
             }
-            
+
             // Загрузка данных о сердечном ритме
             post("/heartrate") {
                 try {
                     val heartRateData = call.receive<HeartRateData>()
-                    
+
                     val logData = mutableMapOf<String, String>()
-                    
+
                     // Безопасно добавляем данные
                     try {
                         // Добавляем данные из meta
@@ -78,20 +78,20 @@ fun Application.configureHeartRateRoutes() {
                             logData["timestamp"] = meta.timestamp.toString()
                             logData["id"] = meta.id
                         }
-                        
+
                         // Добавляем информацию о BPM
                         logData["bpm"] = heartRateData.bpm.toString()
                     } catch (e: Exception) {
                         logData["data_available"] = "false"
                     }
-                    
+
                     // Логируем загрузку данных о сердечном ритме
                     logger.logActivity(
                         event = "Heart rate data upload",
                         userId = call.request.headers["User-Id"],
                         additionalData = logData
                     )
-                    
+
                     heartRateService.saveHeartRateData(heartRateData)
                     call.respond(HttpStatusCode.OK)
                 } catch (e: Exception) {
@@ -102,7 +102,7 @@ fun Application.configureHeartRateRoutes() {
                         userId = call.request.headers["User-Id"],
                         stackTrace = e.stackTraceToString()
                     )
-                    
+
                     call.respondText(
                         "Error uploading heart rate data: ${e.message}",
                         status = HttpStatusCode.InternalServerError

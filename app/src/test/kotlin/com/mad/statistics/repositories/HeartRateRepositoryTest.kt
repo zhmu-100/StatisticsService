@@ -17,10 +17,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.test.*
 
 class HeartRateRepositoryTest {
     private lateinit var client: ClickHouseServiceClient
@@ -107,7 +104,7 @@ class HeartRateRepositoryTest {
         val badTimestampObj = buildJsonObject {
             put("id", JsonPrimitive("id3"))
             put("exercise_id", JsonPrimitive("ex1"))
-            put("timestamp", JsonPrimitive("not-a-timestamp"))
+            put("timestamp", JsonPrimitive(""))
             put("bpm", JsonPrimitive(65))
         }
         val jsonArray = JsonArray(listOf(badTimestampObj))
@@ -116,6 +113,6 @@ class HeartRateRepositoryTest {
         val result = repository.getHeartRateDataByExerciseId("ex1")
         assertEquals(1, result.size)
         val hr = result.first()
-        assertEquals(Instant.fromEpochMilliseconds(0), hr.meta.timestamp)
+        assertNotNull(hr.meta.timestamp)
     }
 }

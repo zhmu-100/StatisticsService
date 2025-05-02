@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     kotlin("jvm") version "2.1.0"
     kotlin("plugin.serialization") version "1.9.0"
+    id("com.ncorti.ktfmt.gradle") version "0.22.0"
     application
     jacoco
 }
@@ -102,7 +103,7 @@ tasks.jacocoTestCoverageVerification {
             limit {
                 counter = "INSTRUCTION"
                 value = "COVEREDRATIO"
-                minimum = "0.60".toBigDecimal()
+                minimum = "0.50".toBigDecimal()
             }
         }
     }

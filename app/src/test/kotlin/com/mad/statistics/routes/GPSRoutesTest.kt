@@ -1,8 +1,10 @@
 package com.mad.statistics.routes
 
+import com.mad.client.LoggerClient
 import com.mad.statistics.models.GPSData
 import com.mad.statistics.models.common.ExerciseMetadata
 import com.mad.statistics.models.common.GPSPosition
+import com.mad.statistics.services.CaloriesService
 import com.mad.statistics.services.GPSService
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -25,6 +27,16 @@ import kotlin.test.assertTrue
 
 class GPSRoutesTest {
     private val json = Json { encodeDefaults = true }
+    private val mockLogger = mockk<LoggerClient>(relaxed = true)
+    private val mockService = mockk<GPSService>()
+
+    private fun testModules(
+        service: GPSService = mockService,
+        logger: LoggerClient = mockLogger
+    ) = listOf(
+        module { single<GPSService> { service } },
+        module { single<LoggerClient>    { logger  } }
+    )
     private val testMeta = ExerciseMetadata(
         id = "meta-1",
         exerciseId = "ex1",
@@ -58,12 +70,12 @@ class GPSRoutesTest {
 
     @Test
     fun `GET gps with valid id returns data`() {
-        val mockService = mockk<GPSService>()
+        //val mockService = mockk<GPSService>()
         every { mockService.getGPSDataByExerciseId("ex1") } returns listOf(testData)
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<GPSService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureGPSRoutes()
         }) {
             val call = handleRequest(HttpMethod.Get, "/api/statistics/gps?exercise_id=ex1")
@@ -78,12 +90,12 @@ class GPSRoutesTest {
 
     @Test
     fun `GET gps when service throws returns InternalServerError`() {
-        val mockService = mockk<GPSService>()
+        //al mockService = mockk<GPSService>()
         every { mockService.getGPSDataByExerciseId(any()) } throws RuntimeException("fail")
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<GPSService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureGPSRoutes()
         }) {
             val call = handleRequest(HttpMethod.Get, "/api/statistics/gps?exercise_id=ex1")
@@ -94,12 +106,12 @@ class GPSRoutesTest {
 
     @Test
     fun `POST gps with valid body returns OK`() {
-        val mockService = mockk<GPSService>()
+        //val mockService = mockk<GPSService>()
         every { mockService.saveGPSData(testData) } just Runs
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<GPSService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureGPSRoutes()
         }) {
             val call = handleRequest(HttpMethod.Post, "/api/statistics/gps") {
@@ -113,12 +125,12 @@ class GPSRoutesTest {
 
     @Test
     fun `POST gps when service throws returns InternalServerError`() {
-        val mockService = mockk<GPSService>()
+        //val mockService = mockk<GPSService>()
         every { mockService.saveGPSData(testData) } throws IllegalStateException("bad")
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<GPSService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureGPSRoutes()
         }) {
             val call = handleRequest(HttpMethod.Post, "/api/statistics/gps") {

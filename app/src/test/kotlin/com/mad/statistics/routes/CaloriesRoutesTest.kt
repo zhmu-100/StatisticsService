@@ -1,5 +1,6 @@
 package com.mad.statistics.routes
 
+import com.mad.client.LoggerClient
 import com.mad.statistics.models.CaloriesData
 import com.mad.statistics.models.common.UserMetadata
 import com.mad.statistics.services.CaloriesService
@@ -24,6 +25,16 @@ import kotlin.test.assertTrue
 
 class CaloriesRoutesTest {
     private val json = Json { encodeDefaults = true }
+    private val mockLogger = mockk<LoggerClient>(relaxed = true)
+    private val mockService = mockk<CaloriesService>()
+
+    private fun testModules(
+        service: CaloriesService = mockService,
+        logger: LoggerClient  = mockLogger
+    ) = listOf(
+        module { single<CaloriesService> { service } },
+        module { single<LoggerClient>    { logger  } }
+    )
     private val testMeta = UserMetadata(
         id = "meta-1",
         userId = "user-1",
@@ -49,12 +60,12 @@ class CaloriesRoutesTest {
 
     @Test
     fun `GET calories with valid id returns data`() {
-        val mockService = mockk<CaloriesService>()
+        //val mockService = mockk<CaloriesService>()
         every { mockService.getCaloriesDataByUserId("user-1") } returns listOf(testData)
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<CaloriesService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureCaloriesRoutes()
         }) {
             val call = handleRequest(HttpMethod.Get, "/api/statistics/calories?user_id=user-1")
@@ -69,12 +80,12 @@ class CaloriesRoutesTest {
 
     @Test
     fun `GET calories when service throws returns InternalServerError`() {
-        val mockService = mockk<CaloriesService>()
+        //val mockService = mockk<CaloriesService>()
         every { mockService.getCaloriesDataByUserId(any()) } throws RuntimeException("fail")
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<CaloriesService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureCaloriesRoutes()
         }) {
             val call = handleRequest(HttpMethod.Get, "/api/statistics/calories?user_id=user-1")
@@ -85,12 +96,12 @@ class CaloriesRoutesTest {
 
     @Test
     fun `POST calories with valid body returns OK`() {
-        val mockService = mockk<CaloriesService>()
+        //val mockService = mockk<CaloriesService>()
         every { mockService.saveCaloriesData(testData) } just Runs
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<CaloriesService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureCaloriesRoutes()
         }) {
             val call = handleRequest(HttpMethod.Post, "/api/statistics/calories") {
@@ -104,12 +115,12 @@ class CaloriesRoutesTest {
 
     @Test
     fun `POST calories when service throws returns InternalServerError`() {
-        val mockService = mockk<CaloriesService>()
+        //val mockService = mockk<CaloriesService>()
         every { mockService.saveCaloriesData(testData) } throws IllegalStateException("bad")
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<CaloriesService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureCaloriesRoutes()
         }) {
             val call = handleRequest(HttpMethod.Post, "/api/statistics/calories") {

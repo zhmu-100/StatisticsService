@@ -5,11 +5,9 @@ import com.mad.model.LogLevel
 import com.mad.statistics.config.AppConfig
 import com.mad.statistics.config.DatabaseConfig
 import com.mad.statistics.config.configureKoin
-import com.mad.statistics.plugins.configureErrorHandling
 import com.mad.statistics.routes.configureCaloriesRoutes
 import com.mad.statistics.routes.configureGPSRoutes
 import com.mad.statistics.routes.configureHeartRateRoutes
-import com.example.datalogger.redis.RedisLoggerImpl
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -17,9 +15,9 @@ import io.ktor.server.netty.*
 import io.ktor.server.plugins.callloging.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.plugins.statuspages.*
+import io.ktor.server.response.*
 import kotlinx.serialization.json.Json
-import org.koin.ktor.ext.inject
-import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 
 fun main() {
@@ -56,19 +54,9 @@ fun main() {
 
 fun Application.module() {
     DatabaseConfig.init()
-    
-    // Инициализация Koin
+
     configureKoin()
-    
-    // Получаем экземпляр RedisLoggerImpl для закрытия соединения при остановке
-    val redisLogger by inject<RedisLoggerImpl>()
-    
-    // Настраиваем обработку событий жизненного цикла приложения
-    environment.monitor.subscribe(ApplicationStopping) {
-        // Закрываем соединение с Redis при остановке приложения
-        redisLogger.close()
-    }
-    
+
     install(ContentNegotiation) {
         json(Json {
             prettyPrint = true
@@ -76,20 +64,19 @@ fun Application.module() {
             ignoreUnknownKeys = true
         })
     }
-    
+
     install(CallLogging) {
         level = Level.INFO
     }
-    
+
     install(CORS) {
         anyHost()
         allowHeader("Content-Type")
-        allowHeader("X-User-Id") // Добавляем заголовок для идентификации пользователя
         allowMethod(io.ktor.http.HttpMethod.Options)
         allowMethod(io.ktor.http.HttpMethod.Get)
         allowMethod(io.ktor.http.HttpMethod.Post)
     }
-    
+
     install(StatusPages) {
         exception<Throwable> { call, cause ->
             val logger = LoggerClient()
@@ -102,7 +89,6 @@ fun Application.module() {
         }
     }
 
-    
     configureGPSRoutes()
     configureHeartRateRoutes()
     configureCaloriesRoutes()

@@ -1,7 +1,9 @@
 package com.mad.statistics.routes
 
+import com.mad.client.LoggerClient
 import com.mad.statistics.models.HeartRateData
 import com.mad.statistics.models.common.ExerciseMetadata
+import com.mad.statistics.services.GPSService
 import com.mad.statistics.services.HeartRateService
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -24,6 +26,16 @@ import kotlin.test.assertTrue
 
 class HeartRateRoutesTest {
     private val json = Json { encodeDefaults = true }
+    private val mockLogger = mockk<LoggerClient>(relaxed = true)
+    private val mockService = mockk<HeartRateService>()
+
+    private fun testModules(
+        service: HeartRateService = mockService,
+        logger: LoggerClient = mockLogger
+    ) = listOf(
+        module { single<HeartRateService> { service } },
+        module { single<LoggerClient>    { logger  } }
+    )
     private val testMeta = ExerciseMetadata(
         id = "meta-1",
         exerciseId = "ex1",
@@ -45,13 +57,13 @@ class HeartRateRoutesTest {
 
     @Test
     fun `GET heartrate with valid id returns data`() {
-        val mockService = mockk<HeartRateService>()
+        //val mockService = mockk<HeartRateService>()
         val data = HeartRateData(meta = testMeta, bpm = 75)
         every { mockService.getHeartRateDataByExerciseId("ex1") } returns listOf(data)
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<HeartRateService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureHeartRateRoutes()
         }) {
             val call = handleRequest(HttpMethod.Get, "/api/statistics/heartrate?exercise_id=ex1")
@@ -67,12 +79,12 @@ class HeartRateRoutesTest {
 
     @Test
     fun `GET heartrate when service throws returns InternalServerError`() {
-        val mockService = mockk<HeartRateService>()
+        //val mockService = mockk<HeartRateService>()
         every { mockService.getHeartRateDataByExerciseId(any()) } throws RuntimeException("fail")
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<HeartRateService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureHeartRateRoutes()
         }) {
             val call = handleRequest(HttpMethod.Get, "/api/statistics/heartrate?exercise_id=ex1")
@@ -83,13 +95,13 @@ class HeartRateRoutesTest {
 
     @Test
     fun `POST heartrate with valid body returns OK`() {
-        val mockService = mockk<HeartRateService>()
+        //val mockService = mockk<HeartRateService>()
         val data = HeartRateData(meta = testMeta, bpm = 60)
         every { mockService.saveHeartRateData(data) } just Runs
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<HeartRateService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureHeartRateRoutes()
         }) {
             val call = handleRequest(HttpMethod.Post, "/api/statistics/heartrate") {
@@ -103,13 +115,13 @@ class HeartRateRoutesTest {
 
     @Test
     fun `POST heartrate when service throws returns InternalServerError`() {
-        val mockService = mockk<HeartRateService>()
+        //val mockService = mockk<HeartRateService>()
         val data = HeartRateData(meta = testMeta, bpm = 100)
         every { mockService.saveHeartRateData(data) } throws IllegalStateException("bad")
 
         withTestApplication({
             install(ContentNegotiation) { json() }
-            install(Koin) { modules(module { single<HeartRateService> { mockService } }) }
+            install(Koin) { modules(testModules()) }
             configureHeartRateRoutes()
         }) {
             val call = handleRequest(HttpMethod.Post, "/api/statistics/heartrate") {
