@@ -3,9 +3,11 @@ package com.mad.statistics
 import com.mad.statistics.config.AppConfig
 import com.mad.statistics.config.DatabaseConfig
 import com.mad.statistics.config.configureKoin
+import com.mad.statistics.plugins.configureErrorHandling
 import com.mad.statistics.routes.configureCaloriesRoutes
 import com.mad.statistics.routes.configureGPSRoutes
 import com.mad.statistics.routes.configureHeartRateRoutes
+import com.example.datalogger.redis.RedisLoggerImpl
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -13,11 +15,10 @@ import io.ktor.server.netty.*
 import io.ktor.server.plugins.callloging.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
-import io.ktor.server.plugins.statuspages.*
-import io.ktor.server.response.*
 import kotlinx.serialization.json.Json
-import org.slf4j.event.Level
+import org.koin.ktor.ext.inject
 import org.slf4j.LoggerFactory
+import org.slf4j.event.Level
 
 fun main() {
     val logger = LoggerFactory.getLogger("com.mad.statistics.Application")
@@ -27,6 +28,8 @@ fun main() {
     logger.info("Database Host: ${AppConfig.dbHost}")
     logger.info("Database Port: ${AppConfig.dbPort}")
     logger.info("ClickHouse Service URL: ${AppConfig.clickhouseServiceUrl}")
+    logger.info("Redis Host: ${AppConfig.redisHost}")
+    logger.info("Redis Port: ${AppConfig.redisPort}")
 
     embeddedServer(Netty, port = AppConfig.port, host = "0.0.0.0") {
         module()
@@ -36,7 +39,17 @@ fun main() {
 fun Application.module() {
     DatabaseConfig.init()
     
+    // Инициализация Koin
     configureKoin()
+    
+    // Получаем экземпляр RedisLoggerImpl для закрытия соединения при остановке
+    val redisLogger by inject<RedisLoggerImpl>()
+    
+    // Настраиваем обработку событий жизненного цикла приложения
+    environment.monitor.subscribe(ApplicationStopping) {
+        // Закрываем соединение с Redis при остановке приложения
+        redisLogger.close()
+    }
     
     install(ContentNegotiation) {
         json(Json {
@@ -53,16 +66,14 @@ fun Application.module() {
     install(CORS) {
         anyHost()
         allowHeader("Content-Type")
+        allowHeader("X-User-Id") // Добавляем заголовок для идентификации пользователя
         allowMethod(io.ktor.http.HttpMethod.Options)
         allowMethod(io.ktor.http.HttpMethod.Get)
         allowMethod(io.ktor.http.HttpMethod.Post)
     }
     
-    install(StatusPages) {
-        exception<Throwable> { call, cause ->
-            call.respondText(text = "500: ${cause.message}", status = io.ktor.http.HttpStatusCode.InternalServerError)
-        }
-    }
+    // Используем наш новый обработчик ошибок с логированием
+    configureErrorHandling()
     
     configureGPSRoutes()
     configureHeartRateRoutes()

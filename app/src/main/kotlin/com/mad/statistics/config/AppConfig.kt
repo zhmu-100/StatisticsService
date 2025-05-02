@@ -29,6 +29,8 @@ object AppConfig {
             "http://$dbHost:$dbPort"
     
     val fullClickhouseServiceUrl: String get() = clickhouseServiceUrl
+    
+    val redisHost: String = System.getenv("REDIS_HOST") ?: "localhost"
+    val redisPort: Int = System.getenv("REDIS_PORT")?.toIntOrNull() ?: 6379
+    val redisPassword: String? = System.getenv("REDIS_PASSWORD")
 }
-
-
