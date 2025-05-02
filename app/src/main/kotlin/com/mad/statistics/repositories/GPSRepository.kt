@@ -45,7 +45,6 @@ class GPSRepository(clickHouseServiceClient: ClickHouseServiceClient) : Reposito
                 clickHouseServiceClient.select("gps_data", columns, filters, orderBy)
             }
             
-            // Группировка результатов по exercise_id
             val groupedResults = result.mapNotNull { element ->
                 try {
                     if (element !is JsonObject) {

@@ -1,3 +1,5 @@
+// KoinConfig.kt — оставить только это:
+
 package com.mad.statistics.config
 
 import com.mad.client.LoggerClient
@@ -8,6 +10,7 @@ import com.mad.statistics.repositories.HeartRateRepository
 import com.mad.statistics.services.CaloriesService
 import com.mad.statistics.services.GPSService
 import com.mad.statistics.services.HeartRateService
+import com.mad.statistics.services.LoggingService
 import io.ktor.server.application.*
 import io.ktor.server.config.*
 import org.koin.dsl.module
@@ -19,27 +22,20 @@ fun Application.configureKoin() {
     val redisPassword = System.getenv("REDIS_PASSWORD") ?: ""
 
     install(Koin) {
-        
         properties(mapOf(
             "redis.host" to redisHost,
             "redis.port" to redisPort.toString(),
             "redis.password" to redisPassword
         ))
-        
         modules(appModule, loggingModule)
     }
 }
 
 val appModule = module {
-    // ClickHouse Service Client с использованием конфигурации
     single { ClickHouseServiceClient() }
-    
-    // Репозитории
     single { GPSRepository(get()) }
     single { HeartRateRepository(get()) }
     single { CaloriesRepository(get()) }
-    
-    // Сервисы
     single { GPSService(get()) }
     single { HeartRateService(get()) }
     single { CaloriesService(get()) }
@@ -47,17 +43,14 @@ val appModule = module {
 
 // Модуль для логирования
 val loggingModule = module {
-    // Создаем единственный экземпляр LoggerClient для всего приложения
-    single { 
+    single {
         LoggerClient(
             host = getProperty("redis.host", "localhost"),
             port = getProperty("redis.port", "6379").toInt(),
             password = getProperty("redis.password", "")
         ).also { logger ->
-            // Регистрируем закрытие клиента при остановке приложения
-            Runtime.getRuntime().addShutdownHook(Thread {
-                logger.close()
-            })
+            // Закрываем Redis-клиент при остановке JVM
+            Runtime.getRuntime().addShutdownHook(Thread { logger.close() })
         }
     }
 }
