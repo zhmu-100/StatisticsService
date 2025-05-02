@@ -21,75 +21,56 @@ import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 
 fun main() {
-    val logger = LoggerClient()
-    logger.logActivity(
-        event = "Starting Statistics Service with configuration:",
-        level = LogLevel.INFO
-    )
-    logger.logActivity(
-        event = "Port: ${AppConfig.port}",
-        level = LogLevel.INFO
-    )
-    logger.logActivity(
-        event = "Database Mode: ${AppConfig.dbMode}",
-        level = LogLevel.INFO
-    )
-    logger.logActivity(
-        event = "Database Host: ${AppConfig.dbHost}",
-        level = LogLevel.INFO
-    )
-    logger.logActivity(
-        event = "Database Port: ${AppConfig.dbPort}",
-        level = LogLevel.INFO
-    )
-    logger.logActivity(
-        event = "ClickHouse Service URL: ${AppConfig.clickhouseServiceUrl}",
-        level = LogLevel.INFO
-    )
+  val logger = LoggerClient()
+  logger.logActivity(
+      event = "Starting Statistics Service with configuration:", level = LogLevel.INFO)
+  logger.logActivity(event = "Port: ${AppConfig.port}", level = LogLevel.INFO)
+  logger.logActivity(event = "Database Mode: ${AppConfig.dbMode}", level = LogLevel.INFO)
+  logger.logActivity(event = "Database Host: ${AppConfig.dbHost}", level = LogLevel.INFO)
+  logger.logActivity(event = "Database Port: ${AppConfig.dbPort}", level = LogLevel.INFO)
+  logger.logActivity(
+      event = "ClickHouse Service URL: ${AppConfig.clickhouseServiceUrl}", level = LogLevel.INFO)
 
-    embeddedServer(Netty, port = AppConfig.port, host = "0.0.0.0") {
-        module()
-    }.start(wait = true)
+  embeddedServer(Netty, port = AppConfig.port, host = "0.0.0.0") { module() }.start(wait = true)
 }
 
 fun Application.module() {
-    DatabaseConfig.init()
+  DatabaseConfig.init()
 
-    configureKoin()
+  configureKoin()
 
-    install(ContentNegotiation) {
-        json(Json {
-            prettyPrint = true
-            isLenient = true
-            ignoreUnknownKeys = true
+  install(ContentNegotiation) {
+    json(
+        Json {
+          prettyPrint = true
+          isLenient = true
+          ignoreUnknownKeys = true
         })
-    }
+  }
 
-    install(CallLogging) {
-        level = Level.INFO
-    }
+  install(CallLogging) { level = Level.INFO }
 
-    install(CORS) {
-        anyHost()
-        allowHeader("Content-Type")
-        allowMethod(io.ktor.http.HttpMethod.Options)
-        allowMethod(io.ktor.http.HttpMethod.Get)
-        allowMethod(io.ktor.http.HttpMethod.Post)
-    }
+  install(CORS) {
+    anyHost()
+    allowHeader("Content-Type")
+    allowMethod(io.ktor.http.HttpMethod.Options)
+    allowMethod(io.ktor.http.HttpMethod.Get)
+    allowMethod(io.ktor.http.HttpMethod.Post)
+  }
 
-    install(StatusPages) {
-        exception<Throwable> { call, cause ->
-            val logger = LoggerClient()
-            logger.logError(
-                event = "Internal Server Error",
-                errorMessage = cause.message ?: "Unknown error",
-                stackTrace = cause.stackTraceToString()
-            )
-            call.respondText(text = "500: ${cause.message}", status = io.ktor.http.HttpStatusCode.InternalServerError)
-        }
+  install(StatusPages) {
+    exception<Throwable> { call, cause ->
+      val logger = LoggerClient()
+      logger.logError(
+          event = "Internal Server Error",
+          errorMessage = cause.message ?: "Unknown error",
+          stackTrace = cause.stackTraceToString())
+      call.respondText(
+          text = "500: ${cause.message}", status = io.ktor.http.HttpStatusCode.InternalServerError)
     }
+  }
 
-    configureGPSRoutes()
-    configureHeartRateRoutes()
-    configureCaloriesRoutes()
+  configureGPSRoutes()
+  configureHeartRateRoutes()
+  configureCaloriesRoutes()
 }
