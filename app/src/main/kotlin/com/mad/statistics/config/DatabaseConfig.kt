@@ -1,32 +1,52 @@
 package com.mad.statistics.config
 
 import com.mad.statistics.clients.ClickHouseServiceClient
-import org.slf4j.LoggerFactory
+import com.mad.client.LoggerClient
+import com.mad.model.LogLevel
 import kotlinx.coroutines.runBlocking
 
 object DatabaseConfig {
-    private val logger = LoggerFactory.getLogger(DatabaseConfig::class.java)
-    
+    private val loggerClient = LoggerClient()
+
+    private fun logInfo(message: String) {
+        loggerClient.logActivity(event = message, level = LogLevel.INFO)
+    }
+
+    private fun logWarn(message: String) {
+        loggerClient.logActivity(event = message, level = LogLevel.WARN)
+    }
+
+    private fun logError(message: String, e: Exception? = null) {
+        if (e != null) {
+            loggerClient.logError(
+                event = message,
+                errorMessage = e.message ?: "Unknown error",
+                stackTrace = e.stackTraceToString()
+            )
+        } else {
+            loggerClient.logActivity(event = message, level = LogLevel.ERROR)
+        }
+    }
+
     fun init() {
         try {
             val clickHouseServiceClient = ClickHouseServiceClient()
-            
-            logger.info("Initializing database connection in ${AppConfig.dbMode} mode")
-            logger.info("Using ClickHouse Service URL: ${AppConfig.clickhouseServiceUrl}")
-            
-            // Проверяем подключение к ClickHouse Service
+
+            logInfo("Initializing database connection in ${AppConfig.dbMode} mode")
+            logInfo("Using ClickHouse Service URL: ${AppConfig.clickhouseServiceUrl}")
+
             runBlocking {
                 val isConnected = clickHouseServiceClient.checkConnection()
                 if (isConnected) {
-                    logger.info("Successfully connected to ClickHouse Service")
+                    logInfo("Successfully connected to ClickHouse Service")
                 } else {
-                    logger.warn("Could not connect to ClickHouse Service")
+                    logWarn("Could not connect to ClickHouse Service")
                 }
             }
-            
-            logger.info("Database initialized successfully with URL: ${AppConfig.clickhouseServiceUrl}")
+
+            logInfo("Database initialized successfully with URL: ${AppConfig.clickhouseServiceUrl}")
         } catch (e: Exception) {
-            logger.error("Error initializing database: ${e.message}", e)
+            logError("Error initializing database: ${e.message}", e)
         }
     }
 }
