@@ -10,7 +10,7 @@ services:
     env_file:
       - ./${SERVICE_NAME:-statistics-service}.env
     ports:
-      - "${PORT:-8086}:8086"
+      - "${PORT:-8088}:8088"
     volumes:
       - app-data:/app/data
       - app-logs:/app/logs
