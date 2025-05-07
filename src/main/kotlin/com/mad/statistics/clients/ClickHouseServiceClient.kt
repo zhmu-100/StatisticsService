@@ -12,7 +12,7 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.*
 
-class ClickHouseServiceClient(private val baseUrl: String = "http://localhost:8080") {
+class ClickHouseServiceClient(private val baseUrl: String = "http://clickhouse-service:8091") {
   private val loggerClient = LoggerClient()
   private val client =
       HttpClient(CIO) {

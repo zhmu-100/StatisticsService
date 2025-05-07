@@ -16,7 +16,7 @@ import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 
 fun Application.configureKoin() {
-  val redisHost = System.getenv("REDIS_HOST") ?: "localhost"
+  val redisHost = System.getenv("REDIS_HOST") ?: "redis"
   val redisPort = System.getenv("REDIS_PORT")?.toIntOrNull() ?: 6379
   val redisPassword = System.getenv("REDIS_PASSWORD") ?: ""
 
@@ -44,7 +44,7 @@ val appModule = module {
 val loggingModule = module {
   single {
     LoggerClient(
-            host = getProperty("redis.host", "localhost"),
+            host = getProperty("redis.host", "redis"),
             port = getProperty("redis.port", "6379").toInt(),
             password = getProperty("redis.password", ""))
         .also { logger ->
