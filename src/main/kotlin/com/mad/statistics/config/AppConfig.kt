@@ -18,5 +18,5 @@ object AppConfig {
 
   val redisHost: String = System.getenv("REDIS_HOST") ?: "redis"
   val redisPort: Int = System.getenv("REDIS_PORT")?.toIntOrNull() ?: 6379
-  val redisPassword: String? = System.getenv("REDIS_PASSWORD")
+  val redisPassword: String? = System.getenv("REDIS_PASSWORD") ?: ""
 }

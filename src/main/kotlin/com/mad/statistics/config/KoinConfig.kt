@@ -20,6 +20,12 @@ fun Application.configureKoin() {
   val redisPort = System.getenv("REDIS_PORT")?.toIntOrNull() ?: 6379
   val redisPassword = System.getenv("REDIS_PASSWORD") ?: ""
 
+  // Log Redis client configuration
+  println("Redis Host: $redisHost")
+  println("Redis Port: $redisPort")
+  println("Redis Password: $redisPassword")
+  println("Redis URL: redis://$redisHost:$redisPort")
+
   install(Koin) {
     properties(
         mapOf(
